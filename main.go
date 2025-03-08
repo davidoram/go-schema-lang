@@ -31,6 +31,35 @@ type Campaign struct {
 	Rewards     []Reward          `json:"rewards"`
 }
 
+func (c *Campaign) EvaluateTriggers(input json.RawMessage) (bool, error) {
+	var data map[string]interface{}
+	if err := json.Unmarshal(input, &data); err != nil {
+		return false, err
+	}
+
+	for _, trigger := range c.Triggers {
+		if trigger.SimpleCondition != nil {
+			ok, err := EvaluateSimpleCondition(*trigger.SimpleCondition, data)
+			log.Printf("Trigger: %v, ok: %t, err: %s", trigger, ok, err)
+			if err != nil {
+				return false, err
+			}
+			if ok {
+				return true, nil
+			}
+		} else if trigger.AggregateCondition != nil {
+			ok, err := EvaluateAggregateCondition(*trigger.AggregateCondition, data)
+			if err != nil {
+				return false, err
+			}
+			if ok {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
 // Reward represents the reward object in the campaign.
 type Reward struct {
 	Kind     string  `json:"kind,omitempty"`
@@ -46,6 +75,10 @@ type Clause struct {
 	Source     string        `json:"source"`
 	Operator   string        `json:"operator"`
 	Parameters []interface{} `json:"parameters"`
+}
+
+func (c Clause) String() string {
+	return fmt.Sprintf("Clause{Source: %s, Operator: %s, Parameters: %v}", c.Source, c.Operator, c.Parameters)
 }
 
 // Trigger represents either a SimpleCondition or an AggregateCondition.
@@ -90,6 +123,10 @@ func (t *Trigger) UnmarshalJSON(data []byte) error {
 type SimpleCondition struct {
 	Type    string   `json:"type"`
 	Clauses []Clause `json:"clauses"`
+}
+
+func (c SimpleCondition) String() string {
+	return fmt.Sprintf("SimpleCondition{Type: %s, Clauses: %v}", c.Type, c.Clauses)
 }
 
 // GroupBy represents a single grouping instruction.
@@ -253,18 +290,16 @@ func isEqual(a, b interface{}) bool {
 }
 
 // toFloat attempts to convert a value to a float64.
-func toFloat(val interface{}) (float64, bool) {
+func toFloat(val interface{}) (int64, bool) {
 	switch v := val.(type) {
-	case float64:
+	case int64:
 		return v, true
 	case int:
-		return float64(v), true
+		return int64(v), true
 	case int32:
-		return float64(v), true
-	case int64:
-		return float64(v), true
+		return int64(v), true
 	case string:
-		f, err := strconv.ParseFloat(v, 64)
+		f, err := strconv.ParseInt(v, 0, 64)
 		if err == nil {
 			return f, true
 		}
@@ -448,6 +483,18 @@ func main() {
 	log.Printf("Input JSON '%s' is valid", options.dataFile)
 	// Further processing can be done here—for example, iterating over triggers or conditions,
 	// and interpreting each condition type (e.g. decoding simple vs. aggregate conditions based on the "type" field).
+
+	// Evalute the trigger condiution
+	pass, err := campaign.EvaluateTriggers(inputData)
+	if err != nil {
+		log.Fatalf("Error evaluating triggers: %v", err)
+	}
+	if pass {
+		fmt.Println("Triggers passed")
+	} else {
+		fmt.Println("Triggers failed")
+	}
+
 }
 
 type opts struct {

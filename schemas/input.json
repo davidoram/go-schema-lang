@@ -1,0 +1,49 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Event Input Schema",
+    "type": "object",
+    "properties": {
+      "triggerEvent": {
+        "$ref": "#/definitions/event"
+      },
+      "customer": {
+        "$ref": "#/definitions/event"
+      },
+      "customerEvents": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/event"
+        }
+      }
+    },
+    "required": ["triggerEvent", "customer", "customerEvents"],
+    "definitions": {
+      "event": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["customer", "credit", "debit", "business-event"]
+          },
+          "business_data": {
+            "type": "object",
+            "description": "Arbitrary key/value data",
+            "additionalProperties": true
+          }
+        },
+        "required": ["id", "created_at", "kind", "business_data"]
+      }
+    }
+  }

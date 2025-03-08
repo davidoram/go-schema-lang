@@ -1,0 +1,79 @@
+{
+    "id": "campaign-001",
+    "name": "Mobile app download campaign",
+    "description": "A campaign to promote mobile app downloads.",
+    "active": true,
+    "start_date": "2023-03-15T00:00:00Z",
+    "end_date": "2023-04-15T00:00:00Z",
+    "triggers": [
+      {
+        "type": "simple_condition",
+        "clauses": [
+          {
+            "source": "triggerEvent",
+            "operator": "equals",
+            "parameters": [
+              "mobile.app.download",
+              { "jsonPath": "$.event_taxonomy" }
+            ]
+          }
+        ]
+      }
+    ],
+    "conditions": [
+      {
+        "type": "aggregate_condition",
+        "parameters": {
+          "filter": [
+            {
+              "type": "simple_condition",
+              "clauses": [
+                {
+                  "source": "eventHistory",
+                  "operator": "equals",
+                  "parameters": [
+                    { "jsonPath": "$.kind" },
+                    "credit"
+                  ]
+                },
+                {
+                  "source": "eventHistory",
+                  "operator": "equals",
+                  "parameters": [
+                    { "jsonPath": "$.business_data['campaign_id']" },
+                    "campaign-001"
+                  ]
+                }
+              ]
+            }
+          ],
+          "group_by": [],
+          "conditions": [
+            {
+              "type": "simple_condition",
+              "clauses": [
+                {
+                  "source": "eventHistory",
+                  "operator": "equals",
+                  "parameters": [
+                    { "jsonPath": "$.count" },
+                    0
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "rewards": [
+      {
+        "type": "discount",
+        "value": 10.5,
+        "currency": "USD",
+        "business_data": {
+          "campaign_id": "campaign-001"
+        }
+      }
+    ]
+  }

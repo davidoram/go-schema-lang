@@ -1,0 +1,116 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "AggregateCondition",
+    "description": "An aggregate condition groups events that meet a simple condition with filters and grouping",
+    "type": "object",
+    "required": [
+      "type",
+      "parameters"
+    ],
+    "properties": {
+      "type": {
+        "const": "aggregate_condition"
+      },
+      "parameters": {
+        "type": "object",
+        "required": [
+          "filter",
+          "group_by",
+          "conditions"
+        ],
+        "properties": {
+          "filter": {
+            "description": "Used to filter the events to be aggregated. Records that do not match the filter are ignored.",
+            "type": "array",
+            "items": {
+              "oneOf": [
+                { "$ref": "simple_condition.json#" },
+                { "$ref": "aggregate_condition.json#" }
+              ]
+            }
+          },
+          "group_by": {
+            "type": "array",
+            "minItems": 0,
+            "description": "An ordered array of grouping criteria. The filtered events will be grouped sequentially by these keys.",
+            "items": {
+              "type": "object",
+              "required": [
+                "jsonPath"
+              ],
+              "properties": {
+                "jsonPath": {
+                  "type": "string",
+                  "description": "A JSONPath to extract the grouping key from each event."
+                },
+                "transform": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "calendar_year"
+                  ],
+                  "default": "none",
+                  "description": "Optional transformation applied to the extracted value (for example, 'calendar_year' to group dates by calendar year)."
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "conditions": {
+            "description": "Applied to the grouped events. The condition is met if all the conditions in the array are met. Each group is evaluated independently, and rewarded if the condition is met.",
+            "type": "array",
+            "items": {
+              "oneOf": [
+                { "$ref": "simple_condition.json#" },
+                { "$ref": "aggregate_condition.json#" }
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "additionalProperties": false,
+    "examples": [
+      {
+        "type": "aggregate_condition",
+        "parameters": {
+          "filter": [
+            {
+              "operator": "equals",
+              "parameters": [
+                { "jsonPath": "$.kind" },
+                "business-event"
+              ]
+            },
+            {
+              "operator": "equals",
+              "parameters": [
+                { "jsonPath": "$.event_taxonomy" },
+                "cleaned-gutters"
+              ]
+            }
+          ],
+          "group_by": [
+            {
+              "jsonPath": "$.business_data.policy_id",
+              "transform": "none"
+            },
+            {
+              "jsonPath": "$.occurred_at",
+              "transform": "calendar_year"
+            }
+          ],
+          "conditions": [
+            {
+              "operator": "greater_than_eq",
+              "parameters": [
+                { "jsonPath": "$.count" },
+                2
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }

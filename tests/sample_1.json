@@ -1,0 +1,45 @@
+{
+    "triggerEvent": {
+        "id": "123e4567-e89b-12d3-a456-426614174000",
+        "created_at": "2023-01-01T12:00:00Z",
+        "occurred_at": "2023-01-01T12:05:00Z",
+        "event_taxonomy": "mobile.app.download",
+        "kind": "business-event",
+        "business_data": {
+            "os": "andriod"
+        }
+    },
+    "customer": {
+        "id": "223e4567-e89b-12d3-a456-426614174001",
+        "created_at": "2023-01-01T12:00:00Z",
+        "kind": "customer",
+        "business_data": {}
+    },
+    "customerEvents": [
+        {
+            "id": "323e4567-e89b-12d3-a456-426614174002",
+            "created_at": "2023-01-01T12:10:00Z",
+            "occurred_at": "2023-01-01T12:10:00Z",
+            "kind": "credit",
+            "business_data": {}
+        },
+        {
+            "id": "423e4567-e89b-12d3-a456-426614174003",
+            "created_at": "2023-01-01T12:15:00Z",
+            "occurred_at": "2023-01-01T12:15:00Z",
+            "kind": "debit",
+            "business_data": {}
+        },
+        {
+            "id": "123e4567-e89b-12d3-a456-426614174000",
+            "created_at": "2023-01-01T12:00:00Z",
+            "occurred_at": "2023-01-01T12:05:00Z",
+            "event_taxonomy": "mobile.app.download",
+            "kind": "business-event",
+            "business_data": {
+                "os": "andriod"
+            }
+    
+        }
+    ]
+}

@@ -1,0 +1,88 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "SimpleCondition",
+    "type": "object",
+    "required": ["type", "clauses"],
+    "properties": {
+      "type": { "const": "simple_condition" },
+      "clauses": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": ["source", "operator", "parameters"],
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": ["triggerEvent", "customer", "eventHistory"]
+            },
+            "operator": { 
+              "type": "string",
+              "enum": [
+                "equals", 
+                "not_equals", 
+                "greater_than", 
+                "greater_than_eq", 
+                "less_than", 
+                "less_than_eq", 
+                "same", 
+                "in",
+                "not_in"
+              ]
+            },
+            "parameters": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "jsonPath": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["jsonPath"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": ["string", "number", "boolean", "null"]
+                  }
+                ]
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "additionalProperties": false,
+    "examples": [
+      {
+        "type": "simple_condition",
+        "clauses": [
+          {
+            "source": "triggerEvent",
+            "operator": "equals",
+            "parameters": [
+              "mobile.app.download",
+              { "jsonPath": "$.event_taxonomy" }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "simple_condition",
+        "clauses": [
+          {
+            "source": "triggerEvent",
+            "operator": "in",
+            "parameters": [
+              { "jsonPath": "$.event_taxonomy" },
+              [ "mobile.app.download.ios", "mobile.app.download.android" ]
+            ]
+          }
+        ]
+      }
+    ]
+  }

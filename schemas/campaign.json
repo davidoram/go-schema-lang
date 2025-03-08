@@ -1,0 +1,45 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Campaign",
+    "type": "object",
+    "required": ["id", "name", "active", "start_date", "rewards"],
+    "properties": {
+      "id": { "type": "string" },
+      "name": { "type": "string" },
+      "description": { "type": "string" },
+      "active": { "type": "boolean" },
+      "start_date": { "type": "string", "format": "date-time" },
+      "end_date": { "type": "string", "format": "date-time" },
+      "triggers": {
+        "type": "array",
+        "items": {
+          "oneOf": [
+            { "$ref": "simple_condition.json#" },
+            { "$ref": "aggregate_condition.json#" }
+          ]
+        }
+      },
+      "conditions": {
+        "type": "array",
+        "items": {
+          "oneOf": [
+            { "$ref": "simple_condition.json#" },
+            { "$ref": "aggregate_condition.json#" }
+          ]
+        }
+      },
+      "rewards": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["type", "value", "currency"],
+          "properties": {
+            "kind": { "type": "string" },
+            "value": { "type": "number" },
+            "currency": { "type": "string" }
+          }
+        }
+      }
+    },
+    "additionalProperties": false
+  }

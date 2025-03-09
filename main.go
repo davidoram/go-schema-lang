@@ -20,15 +20,15 @@ import (
 // Note: For dynamic fields like conditions (which can be one of two types),
 // we use json.RawMessage to delay interpretation.
 type Campaign struct {
-	ID          string     `json:"id"`
-	Name        string     `json:"name"`
-	Description string     `json:"description,omitempty"`
-	Active      bool       `json:"active"`
-	StartDate   time.Time  `json:"start_date"`
-	EndDate     *time.Time `json:"end_date,omitempty"`
-	Triggers    []Trigger  `json:"triggers,omitempty"`
-	Conditions  []Trigger  `json:"conditions,omitempty"`
-	Rewards     []Reward   `json:"rewards"`
+	ID          string              `json:"id"`
+	Name        string              `json:"name"`
+	Description string              `json:"description,omitempty"`
+	Active      bool                `json:"active"`
+	StartDate   time.Time           `json:"start_date"`
+	EndDate     *time.Time          `json:"end_date,omitempty"`
+	Triggers    []BooleanExpression `json:"triggers,omitempty"`
+	Conditions  []BooleanExpression `json:"conditions,omitempty"`
+	Rewards     []Reward            `json:"rewards"`
 }
 
 func (c *Campaign) EvaluateTriggers(input json.RawMessage) (bool, error) {
@@ -47,20 +47,21 @@ func (c *Campaign) EvaluateConditions(input json.RawMessage) (bool, error) {
 	return c.Evaluate(data, c.Conditions)
 }
 
-func (c *Campaign) Evaluate(data map[string]interface{}, conditions []Trigger) (bool, error) {
+func (c *Campaign) Evaluate(data map[string]interface{}, conditions []BooleanExpression) (bool, error) {
 
-	for _, trigger := range conditions {
-		if trigger.SimpleCondition != nil {
-			ok, err := EvaluateSimpleCondition(*trigger.SimpleCondition, data)
-			log.Printf("Trigger: %v, ok: %t, err: %s", trigger, ok, err)
+	for _, cond := range conditions {
+		if cond.Simple != nil {
+			ok, err := EvaluateSimpleCondition(*cond.Simple, data)
+			log.Printf("Evaluate: %v -> ok: %t, err: %v", *cond.Simple, ok, err)
 			if err != nil {
 				return false, err
 			}
 			if ok {
 				return true, nil
 			}
-		} else if trigger.AggregateCondition != nil {
-			ok, err := EvaluateAggregateCondition(*trigger.AggregateCondition, data)
+		} else if cond.Conjunction != nil {
+			ok, err := EvaluateAggregateCondition(*cond.Conjunction, data)
+			log.Printf("Evaluate: %v -> ok: %t, err: %v", *cond.Conjunction, ok, err)
 			if err != nil {
 				return false, err
 			}
@@ -93,14 +94,23 @@ func (c Clause) String() string {
 	return fmt.Sprintf("Clause{Source: %s, Operator: %s, Parameters: %v}", c.Source, c.Operator, c.Parameters)
 }
 
-// Trigger represents either a SimpleCondition or an AggregateCondition.
-type Trigger struct {
-	SimpleCondition    *SimpleCondition
-	AggregateCondition *AggregateCondition
+// BooleanExpression represents either a SimpleCondition or an AggregateCondition.
+type BooleanExpression struct {
+	Simple      *SimpleBoolExpr
+	Conjunction *ListBoolExpr
 }
 
-// UnmarshalJSON custom unmarshals a Trigger.
-func (t *Trigger) UnmarshalJSON(data []byte) error {
+func (t BooleanExpression) Evaluate(data map[string]interface{}) (bool, error) {
+	if t.Simple != nil {
+		return EvaluateSimpleCondition(*t.Simple, data)
+	} else if t.Conjunction != nil {
+		return EvaluateAggregateCondition(*t.Conjunction, data)
+	}
+	return false, errors.New("unknown condition type")
+}
+
+// UnmarshalJSON custom unmarshals a Condition.
+func (t *BooleanExpression) UnmarshalJSON(data []byte) error {
 	var temp map[string]interface{}
 	if err := json.Unmarshal(data, &temp); err != nil {
 		return err
@@ -108,37 +118,37 @@ func (t *Trigger) UnmarshalJSON(data []byte) error {
 
 	condType, ok := temp["type"].(string)
 	if !ok {
-		return errors.New("missing type field in trigger")
+		return errors.New("missing type field in boolean expression")
 	}
 
 	switch condType {
 	case "simple_condition":
-		var simple SimpleCondition
+		var simple SimpleBoolExpr
 		if err := json.Unmarshal(data, &simple); err != nil {
 			return err
 		}
-		t.SimpleCondition = &simple
+		t.Simple = &simple
 	case "aggregate_condition":
-		var aggregate AggregateCondition
+		var aggregate ListBoolExpr
 		if err := json.Unmarshal(data, &aggregate); err != nil {
 			return err
 		}
-		t.AggregateCondition = &aggregate
+		t.Conjunction = &aggregate
 	default:
-		return errors.New("unknown condition type in trigger")
+		return errors.New("unknown condition type " + condType)
 	}
 
 	return nil
 }
 
-// SimpleCondition holds a set of clauses evaluated with AND logic.
-type SimpleCondition struct {
+// SimpleBoolExpr holds a set of clauses evaluated with AND logic.
+type SimpleBoolExpr struct {
 	Type    string   `json:"type"`
 	Clauses []Clause `json:"clauses"`
 }
 
-func (c SimpleCondition) String() string {
-	return fmt.Sprintf("SimpleCondition{Type: %s, Clauses: %v}", c.Type, c.Clauses)
+func (c SimpleBoolExpr) String() string {
+	return fmt.Sprintf("SimpleBoolExpr{Type: %s, Clauses: %v}", c.Type, c.Clauses)
 }
 
 // GroupBy represents a single grouping instruction.
@@ -147,17 +157,25 @@ type GroupBy struct {
 	Transform string `json:"transform,omitempty"`
 }
 
-// AggregateParameters contains the filter, grouping, and inner conditions.
-type AggregateParameters struct {
-	Filter     []json.RawMessage `json:"filter"`
-	GroupBy    []GroupBy         `json:"group_by"`
-	Conditions []json.RawMessage `json:"conditions"`
+// AggregateParams contains the filter, grouping, and inner conditions.
+type AggregateParams struct {
+	Filter     []BooleanExpression `json:"filter"`
+	GroupBy    []GroupBy           `json:"group_by"`
+	Conditions []BooleanExpression `json:"conditions"`
 }
 
-// AggregateCondition holds parameters for aggregating events.
-type AggregateCondition struct {
-	Type       string              `json:"type"`
-	Parameters AggregateParameters `json:"parameters"`
+func (a AggregateParams) String() string {
+	return fmt.Sprintf("AggregateParams{Filter: %v, GroupBy: %v, Conditions: %v}", a.Filter, a.GroupBy, a.Conditions)
+}
+
+// ListBoolExpr holds parameters for aggregating events.
+type ListBoolExpr struct {
+	Type       string          `json:"type"`
+	Parameters AggregateParams `json:"parameters"`
+}
+
+func (c ListBoolExpr) String() string {
+	return fmt.Sprintf("ListBoolExpr{Type: %s, Parameters: %v}", c.Type, c.Parameters)
 }
 
 // ----------------- Condition Evaluation -----------------
@@ -175,13 +193,13 @@ func EvaluateCondition(conditionRaw json.RawMessage, dataContext map[string]inte
 	}
 	switch condType {
 	case "simple_condition":
-		var simple SimpleCondition
+		var simple SimpleBoolExpr
 		if err := json.Unmarshal(conditionRaw, &simple); err != nil {
 			return false, err
 		}
 		return EvaluateSimpleCondition(simple, dataContext)
 	case "aggregate_condition":
-		var aggregate AggregateCondition
+		var aggregate ListBoolExpr
 		if err := json.Unmarshal(conditionRaw, &aggregate); err != nil {
 			return false, err
 		}
@@ -192,7 +210,7 @@ func EvaluateCondition(conditionRaw json.RawMessage, dataContext map[string]inte
 }
 
 // EvaluateSimpleCondition evaluates all clauses in a simple condition (AND logic).
-func EvaluateSimpleCondition(condition SimpleCondition, dataContext map[string]interface{}) (bool, error) {
+func EvaluateSimpleCondition(condition SimpleBoolExpr, dataContext map[string]interface{}) (bool, error) {
 	for _, clause := range condition.Clauses {
 		ok, err := EvaluateClause(clause, dataContext)
 		if err != nil {
@@ -322,12 +340,12 @@ func toFloat(val interface{}) (int64, bool) {
 }
 
 // EvaluateAggregateCondition implements a basic aggregate condition evaluator.
-// It assumes that dataContext["events"] contains a slice of event objects.
+// It assumes that dataContext["eventHistory"] contains a slice of event objects.
 // The implementation filters events, groups them using the specified keys,
 // and then applies inner conditions (e.g. checking the count of events in a group).
-func EvaluateAggregateCondition(aggregate AggregateCondition, dataContext map[string]interface{}) (bool, error) {
+func EvaluateAggregateCondition(aggregate ListBoolExpr, dataContext map[string]interface{}) (bool, error) {
 	// Get events from the context.
-	eventsRaw, exists := dataContext["events"]
+	eventsRaw, exists := dataContext["eventHistory"]
 	if !exists {
 		return false, fmt.Errorf("no events found in context for aggregate condition")
 	}
@@ -340,15 +358,16 @@ func EvaluateAggregateCondition(aggregate AggregateCondition, dataContext map[st
 	filteredEvents := []interface{}{}
 	for _, event := range eventsSlice {
 		passes := true
-		for _, filterCondRaw := range aggregate.Parameters.Filter {
+		for _, filter := range aggregate.Parameters.Filter {
 			// For filtering, we assume the event is used for every source.
 			tempContext := map[string]interface{}{
-				"triggerEvent": event,
-				"customer":     event,
-				"eventHistory": event,
+				"triggerEvent": dataContext["triggerEvent"],
+				"customer":     dataContext["customer"],
+				"eventHistory": dataContext["eventHistory"],
 				"events":       eventsSlice,
 			}
-			res, err := EvaluateCondition(filterCondRaw, tempContext)
+
+			res, err := filter.Evaluate(tempContext)
 			if err != nil {
 				return false, err
 			}
@@ -399,8 +418,8 @@ func EvaluateAggregateCondition(aggregate AggregateCondition, dataContext map[st
 			"eventHistory": aggregateData,
 		}
 		groupPassed := true
-		for _, innerCondRaw := range aggregate.Parameters.Conditions {
-			res, err := EvaluateCondition(innerCondRaw, tempContext)
+		for _, innerCond := range aggregate.Parameters.Conditions {
+			res, err := innerCond.Evaluate(tempContext)
 			if err != nil {
 				return false, err
 			}

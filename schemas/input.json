@@ -9,14 +9,14 @@
       "customer": {
         "$ref": "#/definitions/event"
       },
-      "customerEvents": {
+      "eventHistory": {
         "type": "array",
         "items": {
           "$ref": "#/definitions/event"
         }
       }
     },
-    "required": ["triggerEvent", "customer", "customerEvents"],
+    "required": ["triggerEvent", "customer", "eventHistory"],
     "definitions": {
       "event": {
         "type": "object",

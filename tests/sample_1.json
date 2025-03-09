@@ -15,7 +15,7 @@
         "kind": "customer",
         "business_data": {}
     },
-    "customerEvents": [
+    "eventHistory": [
         {
             "id": "323e4567-e89b-12d3-a456-426614174002",
             "created_at": "2023-01-01T12:10:00Z",
